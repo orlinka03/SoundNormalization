@@ -2,7 +2,7 @@
 import pytest
 from pydub import AudioSegment
 
-from src.file.sound_func import get_file_type, get_sound, apply_compression
+from src.file.sound_func import get_file_type, get_sound, apply_compression, cut_from_file, save_file
 
 
 @pytest.mark.parametrize("name",
@@ -39,3 +39,6 @@ def test_apply_compression():
     audio = get_sound(file_path)
     compressed_audio = apply_compression(audio)
     assert compressed_audio.dBFS < audio.dBFS
+
+def test_sound_cut():
+    save_file(cut_from_file("sounds\\perfomance.mp4", 2,5))

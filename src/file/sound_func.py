@@ -1,9 +1,14 @@
+import enum
 import os
 from pydub import AudioSegment
 from moviepy.editor import VideoFileClip, AudioFileClip
 from pymediainfo import MediaInfo
 
 SIZE_THRESHOLD = 50 * 1024 * 1024  # Пример порога для большого файла (50MB)
+
+class FileType(enum.Enum):
+    Video = "Video",
+    Audio = "Audio"
 
 def get_file_type(file):
     """
@@ -13,9 +18,9 @@ def get_file_type(file):
     has_video = False
     has_audio = False
     for track in media_info.tracks:
-        if track.track_type == "Video":
+        if track.track_type == FileType.Video.name:
             has_video = True
-        elif track.track_type == "Audio":
+        elif track.track_type == FileType.Audio.name:
             has_audio = True
 
     if has_video:
@@ -85,9 +90,9 @@ def extract_audio_to_temp_file(file, file_type):
     return sound_from_file
 
 
-def apply_compression(audio):
+def apply_compression(audio, threshold=-30, ratio=4.0):
     # Применение компрессии с настройкой порога и соотношения
-    compressed_audio = compress_dynamic_range(audio, threshold=-30, ratio=4.0)
+    compressed_audio = compress_dynamic_range(audio, threshold=threshold, ratio=ratio)
     return compressed_audio
 
 
@@ -122,3 +127,22 @@ def save_or_replace_audio(file, audio, file_type):
         return output_audio_path
     else:
         raise ValueError("Unsupported file type")
+
+def cut_from_file(file, start, end):
+    if get_file_type(file) == "Video":
+        clip = VideoFileClip(file)
+        clip = clip.subclip(start, end)
+        return clip
+    elif get_file_type(file) == "Audio":
+        audio = AudioSegment.from_file(file)
+        trimmed_audio = audio[start * 1000:end * 1000]
+        return trimmed_audio
+
+def save_file(fragment, name="output"):
+    if isinstance(fragment, AudioSegment):
+        name += ".mp3"
+        fragment.export(name, "mp3")
+    elif isinstance(fragment, VideoFileClip):
+        if not name.endswith(".mp4"):
+            name += ".mp4"
+        fragment.write_videofile(name)
