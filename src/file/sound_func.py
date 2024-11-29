@@ -1,5 +1,7 @@
 import enum
 import os
+from pathlib import Path
+
 from pydub import AudioSegment
 from moviepy.editor import VideoFileClip, AudioFileClip
 from pymediainfo import MediaInfo
@@ -24,9 +26,9 @@ def get_file_type(file):
             has_audio = True
 
     if has_video:
-        return "Video"
+        return FileType.Video.name
     elif has_audio:
-        return "Audio"
+        return FileType.Audio.name
     return "Unknown"
 
 
@@ -44,8 +46,8 @@ def get_sound(file):
     if file_type == "Unknown":
         raise ValueError(f"Unsupported file type: '{file}'. Please upload a valid audio or video file.")
 
-    if file_type == "Audio":
-        print(f"Loading audio from audio file ({file_size / (1024 * 1024):.2f} MB)...")
+    if file_type == FileType.Audio.name:
+        print(f"Loading audio from audio file ...")
         return load_audio(file, file_type)
 
     if file_size > SIZE_THRESHOLD:
@@ -61,7 +63,7 @@ def load_audio(file, file_type):
     Загружает аудио из файла, независимо от его типа (видео или аудио).
     Если видео, извлекает аудио.
     """
-    if file_type == "Video":
+    if file_type == FileType.Video.name:
         print("Extracting audio from video file...")
         video = VideoFileClip(file)
         audio = video.audio
@@ -69,7 +71,7 @@ def load_audio(file, file_type):
         audio.write_audiofile(temp_audio_path, codec='pcm_s16le', fps=44100)
         sound = AudioSegment.from_file(temp_audio_path)
         os.remove(temp_audio_path)  # Удаляем временный файл
-    elif file_type == "Audio":
+    elif file_type == FileType.Audio.name:
         print("Loading audio from audio file...")
         sound = AudioSegment.from_file(file)
     else:
@@ -107,33 +109,42 @@ def compress_dynamic_range(audio, threshold, ratio):
 
 def save_or_replace_audio(file, audio, file_type):
     """
-    Сохраняет или заменяет аудио в зависимости от типа файла.
+    Сохраняет или заменяет аудио в зависимости от типа файла, удаляя временные файлы.
     """
     # Сохраняем обработанное аудио во временный файл
     temp_audio_path = "temp_compressed_audio.wav"
     audio.export(temp_audio_path, format="wav")
 
-    if file_type == "Video":
-        print("Replacing audio in video file...")
-        video = VideoFileClip(file)
-        audio_clip = AudioFileClip(temp_audio_path)
-        video = video.set_audio(audio_clip)
-        output_video_path = "output_video_with_compressed_audio.mp4"
-        video.write_videofile(output_video_path, codec="libx264", audio_codec="aac")
-        return output_video_path
-    elif file_type == "Audio":
-        output_audio_path = "output_compressed_audio.wav"
-        audio.export(output_audio_path, format="wav")
-        return output_audio_path
-    else:
-        raise ValueError("Unsupported file type")
+    try:
+        if file_type == FileType.Video.name:
+            print("Replacing audio in video file...")
+            video = VideoFileClip(file)
+            audio_clip = AudioFileClip(temp_audio_path)
+            video = video.set_audio(audio_clip)
+            output_video_path = "output_video_with_compressed_audio.mp4"
+            video.write_videofile(output_video_path, codec="libx264", audio_codec="aac")
+            return output_video_path
+
+        elif file_type == FileType.Audio.name:
+            output_audio_path = "output_compressed_audio.wav"
+            audio.export(output_audio_path, format="wav")
+            return output_audio_path
+
+        else:
+            raise ValueError("Unsupported file type")
+
+    finally:
+        # Удаляем временный файл
+        if os.path.exists(temp_audio_path):
+            os.remove(temp_audio_path)
+            print(f"Temporary file {temp_audio_path} deleted.")
 
 def cut_from_file(file, start, end):
-    if get_file_type(file) == "Video":
+    if get_file_type(file) == FileType.Video.name:
         clip = VideoFileClip(file)
         clip = clip.subclip(start, end)
         return clip
-    elif get_file_type(file) == "Audio":
+    elif get_file_type(file) == FileType.Audio.name:
         audio = AudioSegment.from_file(file)
         trimmed_audio = audio[start * 1000:end * 1000]
         return trimmed_audio
@@ -146,3 +157,6 @@ def save_file(fragment, name="output"):
         if not name.endswith(".mp4"):
             name += ".mp4"
         fragment.write_videofile(name)
+
+def get_file_extension(file):
+    return Path(file).suffix

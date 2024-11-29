@@ -2,7 +2,7 @@
 import pytest
 from pydub import AudioSegment
 
-from src.file.sound_func import get_file_type, get_sound, apply_compression, cut_from_file, save_file
+from src.file.sound_func import get_file_type, get_sound, apply_compression, cut_from_file, save_file, FileType
 
 
 @pytest.mark.parametrize("name",
@@ -15,8 +15,8 @@ def test_play_sound(name):
 
 # Тест для определения типа файла
 @pytest.mark.parametrize("file_path, expected_type", [
-    ("sounds\\file_example_WAV_2MG.wav", "Audio"),
-    ("sounds\\perfomance.mp4", "Video"),
+    ("sounds\\file_example_WAV_2MG.wav", FileType.Audio.name),
+    ("sounds\\perfomance.mp4", FileType.Video.name),
     ("sounds\\txt_file.txt", "Unknown"),
 ])
 def test_get_file_type(file_path, expected_type):
