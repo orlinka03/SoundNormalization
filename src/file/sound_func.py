@@ -1,5 +1,6 @@
 import enum
 import os
+import shutil
 from pathlib import Path
 
 from pydub import AudioSegment
@@ -107,7 +108,7 @@ def compress_dynamic_range(audio, threshold, ratio):
     return compressed
 
 
-def save_or_replace_audio(file, audio, file_type):
+def save_or_replace_audio(file, audio, file_type, res_file="compressed file"):
     """
     Сохраняет или заменяет аудио в зависимости от типа файла, удаляя временные файлы.
     """
@@ -121,12 +122,12 @@ def save_or_replace_audio(file, audio, file_type):
             video = VideoFileClip(file)
             audio_clip = AudioFileClip(temp_audio_path)
             video = video.set_audio(audio_clip)
-            output_video_path = "output_video_with_compressed_audio.mp4"
+            output_video_path = res_file
             video.write_videofile(output_video_path, codec="libx264", audio_codec="aac")
             return output_video_path
 
         elif file_type == FileType.Audio.name:
-            output_audio_path = "output_compressed_audio.wav"
+            output_audio_path = res_file
             audio.export(output_audio_path, format="wav")
             return output_audio_path
 
@@ -141,22 +142,35 @@ def save_or_replace_audio(file, audio, file_type):
 
 def cut_from_file(file, start, end):
     if get_file_type(file) == FileType.Video.name:
+        print("VIDEO")
         clip = VideoFileClip(file)
         clip = clip.subclip(start, end)
         return clip
     elif get_file_type(file) == FileType.Audio.name:
+        print("AUDIO")
         audio = AudioSegment.from_file(file)
         trimmed_audio = audio[start * 1000:end * 1000]
         return trimmed_audio
 
 def save_file(fragment, name="output"):
     if isinstance(fragment, AudioSegment):
-        name += ".mp3"
+        if not name.endswith(".mp3") and not name.endswith(".wav"):
+            name += ".mp3"
         fragment.export(name, "mp3")
     elif isinstance(fragment, VideoFileClip):
         if not name.endswith(".mp4"):
             name += ".mp4"
         fragment.write_videofile(name)
+
+def save_result(file, path):
+    if path.endswith not in (".mp3", '.mp4'):
+        if get_file_type(file) == FileType.Audio.name:
+            path += ".mp3"
+        elif get_file_type(file) == FileType.Video.name:
+            path += ".mp4"
+    shutil.copy(file, path)
+
+
 
 def get_file_extension(file):
     return Path(file).suffix

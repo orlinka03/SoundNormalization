@@ -1,9 +1,10 @@
+import shutil
 import tempfile
 
 import flet as ft
 from pydub import AudioSegment
 from src.file.sound_func import cut_from_file, save_file, apply_compression, load_audio, get_file_type, \
-    save_or_replace_audio, get_file_extension
+    save_or_replace_audio, get_file_extension, save_result
 
 
 def main(page: ft.Page):
@@ -15,6 +16,19 @@ def main(page: ft.Page):
     original_file = None
     video = None
 
+    def back_to_original(e):
+        nonlocal selected_file
+        selected_file = original_file
+        print("Orig")
+        row1.content = update_video_player(selected_file)
+        sound_funcs.value = None
+        row2.content = ft.Text("Выберите функцию для обработки")
+        page.update()
+
+    def update_cut_slider(file_path):
+        cut_slider.max = round(len(AudioSegment.from_file(file_path)) / 1000, 1)
+        cut_slider.divisions = len(AudioSegment.from_file(file_path)) // 100
+
     def update_video_player(file_path):
         nonlocal video
 
@@ -22,29 +36,21 @@ def main(page: ft.Page):
         print(f"File path: {file_path}")
 
         # Если видео еще не создано, создаем его
-        if video is None:
-            try:
-                video = ft.Video(
-                    expand=True,
-                    playlist=[ft.VideoMedia(file_path)],
-                    playlist_mode=ft.PlaylistMode.LOOP,
-                    fill_color=ft.colors.BLUE_400,
-                    aspect_ratio=16 / 9,
-                    volume=100,
-                    autoplay=True,
-                )
-                print("Video created successfully.")
-            except Exception as e:
-                print(f"Error creating video: {e}")
-        else:
-            # Проверяем, есть ли медиа в плейлисте, если есть, удаляем его
-            if video.playlist:
-                video.playlist_remove(0)
 
-            # Добавляем новое медиа
-            video.playlist_add(ft.VideoMedia(file_path))
+        try:
+            video = ft.Video(
+                expand=True,
+                playlist=[ft.VideoMedia(file_path)],
+                playlist_mode=ft.PlaylistMode.LOOP,
+                fill_color=ft.colors.BLUE_400,
+                aspect_ratio=16 / 9,
+                volume=100,
+                autoplay=True,
+            )
+            print("Video created successfully.")
+        except Exception as e:
+            print(f"Error creating video: {e}")
 
-        page.update()
         return video
 
     top_bar = ft.Container(
@@ -63,12 +69,16 @@ def main(page: ft.Page):
                         ft.IconButton(
                             icon=ft.icons.SAVE,
                             tooltip="Save file",
-                            on_click=lambda e: file_picker.save_file(),
+                            on_click=lambda e: save_picker.save_file(
+                                dialog_title="Save processed file",
+                                file_name="processed file",
+                                initial_directory="D:/"
+                            ),
                         ),
                         ft.IconButton(
                             icon=ft.icons.BACKUP,
                             tooltip="Back to original",
-                            on_click=...
+                            on_click=back_to_original
                         )
                     ],
                     alignment=ft.MainAxisAlignment.START,
@@ -105,30 +115,63 @@ def main(page: ft.Page):
         expand=True,
     )
 
+
     def pick_files_result(e: ft.FilePickerResultEvent):
-        nonlocal selected_file
+        nonlocal selected_file, original_file
         if e.files and len(e.files) > 0:
             selected_file = e.files[0].path
+            original_file = selected_file
             row1.content = update_video_player(selected_file)
             column_2.content = sound_funcs
-            cut_slider.max = round(len(AudioSegment.from_file(selected_file)) / 1000, 1)
-            cut_slider.divisions = len(AudioSegment.from_file(selected_file)) // 100
+            update_cut_slider(selected_file)
         else:
             row1.content = ft.Text("Файл не выбран")
         page.update()
 
+    def save(e):
+        print("saving file")
+        if e.path:
+            try:
+                if selected_file:
+                    save_result(selected_file, e.path)
+                    print(f"Selected file save to {e.path}")
+                else:
+                    print("No selected file")
+            except Exception as ex:
+                print(f"Error saving file {ex}")
+        else:
+            print("Save canceled")
+
+
+
+
+
+
     # Функции обработки
     def compress_file_sound(e):
+        nonlocal selected_file
         thresh, ratio = -threshold_slider.value, float(ratio_slider.value)
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"{get_file_extension(selected_file)}")
+        temp_file.close()
+        result = apply_compression(load_audio(selected_file, get_file_type(selected_file)), thresh, ratio)
         save_or_replace_audio(
             selected_file,
-            apply_compression(load_audio(selected_file, get_file_type(selected_file)), thresh, ratio),
-            get_file_type(selected_file)
+            result,
+            get_file_type(selected_file),
+            temp_file.name
         )
         print("file saved")
+        selected_file = temp_file.name
+        row1.content = update_video_player(selected_file)
+        sound_funcs.value = None
+        row2.content = ft.Text("Выберите функцию для обработки")
+        page.update()
+
 
     def cut_file(e):
+        nonlocal selected_file
         start, end = cut_slider.start_value, cut_slider.end_value
+
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"{get_file_extension(selected_file)}")
         temp_file.close()
 
@@ -139,15 +182,21 @@ def main(page: ft.Page):
         save_file(result, temp_file.name)
 
         print(f"File saved as {temp_file.name}")
+        selected_file = temp_file.name
 
         # Обновляем видеоплеер
-        update_video_player(temp_file.name)
+        row1.content = update_video_player(temp_file.name)
+        sound_funcs.value = None
+        row2.content = ft.Text("Выберите функцию для обработки")
+
         print(f"Video player updated with {temp_file.name}")
+
 
         page.update()
         print("File processing complete.")
 
     def sound_func_changed(e):
+        update_cut_slider(selected_file)
         if e.control.value == "compress":
             row2.content = ft.Column([
                 ft.Text("Adjust compression settings", size=18, color=ft.colors.BLACK87),
@@ -164,8 +213,14 @@ def main(page: ft.Page):
 
     # Элементы управления
     threshold_slider = ft.Slider(min=0, max=100, divisions=100, value=30, label="{value}", expand=True)
-    ratio_slider = ft.Slider(min=1.0, max=10.0, divisions=18, value=1, label="{value}", expand=True)
-    cut_slider = ft.RangeSlider(min=0, start_value=10, end_value=20, label="{value} sec", expand=True)
+    ratio_slider = ft.Slider(min=1.0, max=10.0, divisions=18, value=4, label="{value}", expand=True)
+    cut_slider = ft.RangeSlider(
+        min=0,
+        start_value=10,
+        end_value=20,
+        label="{value} sec",
+        expand=True
+    )
 
     sound_funcs = ft.RadioGroup(
         content=ft.Column([
@@ -208,7 +263,9 @@ def main(page: ft.Page):
     column_2.expand = 1
 
     file_picker = ft.FilePicker(on_result=pick_files_result)
+    save_picker = ft.FilePicker(on_result=save)
     page.overlay.append(file_picker)
+    page.overlay.append(save_picker)
 
     # Добавляем содержимое на страницу
     page.add(
