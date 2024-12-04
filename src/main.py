@@ -1,8 +1,11 @@
 import tempfile
+from typing import Annotated
 
-from fastapi import FastAPI, Depends, UploadFile
-from fastapi_users import fastapi_users, FastAPIUsers
+from fastapi import FastAPI, Depends, UploadFile, Form
 from starlette.responses import FileResponse
+
+from fastapi import FastAPI
+from fastapi_users import FastAPIUsers
 
 from src.file.sound_func import get_file_extension, apply_compression, load_audio, get_file_type, save_or_replace_audio, \
     FileType
@@ -11,6 +14,7 @@ from src.user.manager import get_user_manager
 from src.user.models import User
 from src.user.schemas import UserRead, UserCreate
 from src.file.router import router as file_router  # Импортируйте ваш роутер для работы с файлами
+
 
 fastapi_users = FastAPIUsers[User, int](
     get_user_manager,
@@ -47,8 +51,13 @@ def protected_route(user: User = Depends(current_user)):
     return f"Hello, {user.name}"
 
 @app.post("/file/compress")
-def compress_file(file: UploadFile):
+def compress_file(file: UploadFile,
+                  thresh: Annotated[int, Form()],
+                  ratio: Annotated[float, Form()]
+                  ):
     try:
+        print("Hello world")
+        print(thresh, ratio)
         print(file.filename)
         # Добавить проверку на тип файла
         # Отправка параметров компрессии thresh, ratio
@@ -57,7 +66,6 @@ def compress_file(file: UploadFile):
         file_path = "uploaded.mp4"
         with open(file_path, "wb") as f:
             f.write(file.file.read())
-        thresh, ratio = -30, 4.0
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"{get_file_extension(file_path)}")
         temp_file.close()
         result = apply_compression(load_audio(file_path, get_file_type(file_path)), thresh, ratio)

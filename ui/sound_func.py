@@ -172,9 +172,10 @@ def main(page: ft.Page):
         import requests
         url = "http://127.0.0.1:8000/file/compress"
         files = {'file': open(selected_file, 'rb')}
+        data = {'thresh': -threshold_slider.value, 'ratio': ratio_slider.value}
 
         # Скачиваем обработанное видео
-        with requests.post(url, stream=True, files=files) as r:
+        with requests.post(url, stream=True, files=files, data=data) as r:
             r.raise_for_status()
             with open("downloaded.mp4", 'wb') as f:
                 for chunk in r.iter_content(chunk_size=8192):
