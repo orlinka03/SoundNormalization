@@ -148,20 +148,40 @@ def main(page: ft.Page):
 
 
     # Функции обработки
+    # def compress_file_sound(e):
+    #     nonlocal selected_file
+    #     thresh, ratio = -threshold_slider.value, float(ratio_slider.value)
+    #     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"{get_file_extension(selected_file)}")
+    #     temp_file.close()
+    #     result = apply_compression(load_audio(selected_file, get_file_type(selected_file)), thresh, ratio)
+    #     save_or_replace_audio(
+    #         selected_file,
+    #         result,
+    #         get_file_type(selected_file),
+    #         temp_file.name
+    #     )
+    #     print("file saved")
+    #     selected_file = temp_file.name
+    #     row1.content = update_video_player(selected_file)
+    #     sound_funcs.value = None
+    #     row2.content = ft.Text("Выберите функцию для обработки")
+    #     page.update()
+
     def compress_file_sound(e):
         nonlocal selected_file
-        thresh, ratio = -threshold_slider.value, float(ratio_slider.value)
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"{get_file_extension(selected_file)}")
-        temp_file.close()
-        result = apply_compression(load_audio(selected_file, get_file_type(selected_file)), thresh, ratio)
-        save_or_replace_audio(
-            selected_file,
-            result,
-            get_file_type(selected_file),
-            temp_file.name
-        )
-        print("file saved")
-        selected_file = temp_file.name
+        import requests
+        url = "http://127.0.0.1:8000/file/compress"
+        files = {'file': open(selected_file, 'rb')}
+
+        # Скачиваем обработанное видео
+        with requests.post(url, stream=True, files=files) as r:
+            r.raise_for_status()
+            with open("downloaded.mp4", 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+        print("All is downloaded!")
+        selected_file = "downloaded.mp4"
         row1.content = update_video_player(selected_file)
         sound_funcs.value = None
         row2.content = ft.Text("Выберите функцию для обработки")

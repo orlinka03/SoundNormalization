@@ -1,6 +1,11 @@
-from fastapi import FastAPI, Depends
-from fastapi_users import fastapi_users, FastAPIUsers
+import tempfile
 
+from fastapi import FastAPI, Depends, UploadFile
+from fastapi_users import fastapi_users, FastAPIUsers
+from starlette.responses import FileResponse
+
+from src.file.sound_func import get_file_extension, apply_compression, load_audio, get_file_type, save_or_replace_audio, \
+    FileType
 from src.user.base_config import auth_backend, current_user
 from src.user.manager import get_user_manager
 from src.user.models import User
@@ -40,3 +45,28 @@ app.include_router(
 @app.get("/protected-route")
 def protected_route(user: User = Depends(current_user)):
     return f"Hello, {user.name}"
+
+@app.post("/file/compress")
+def compress_file(file: UploadFile):
+    try:
+        print(file.filename)
+        # Добавить проверку на тип файла
+        # Отправка параметров компрессии thresh, ratio
+        # Тоже самое для обрезания
+
+        file_path = "uploaded.mp4"
+        with open(file_path, "wb") as f:
+            f.write(file.file.read())
+        thresh, ratio = -30, 4.0
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"{get_file_extension(file_path)}")
+        temp_file.close()
+        result = apply_compression(load_audio(file_path, get_file_type(file_path)), thresh, ratio)
+        save_or_replace_audio(
+            file_path,
+            result,
+            get_file_type(file_path),
+            temp_file.name
+        )
+        return FileResponse(temp_file.name)
+    except:
+        return {"message": "Error!"}
