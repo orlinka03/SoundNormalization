@@ -60,7 +60,6 @@ def compress_file(file: UploadFile,
         print(thresh, ratio)
         print(file.filename)
         # Добавить проверку на тип файла
-        # Отправка параметров компрессии thresh, ratio
         # Тоже самое для обрезания
 
         file_path = "uploaded.mp4"
