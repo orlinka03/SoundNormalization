@@ -70,3 +70,19 @@ class S3Client:
             except Exception as e:
                 logging.error(f"Ошибка при получении списка файлов: {e}")
                 raise
+
+    async def get_file_by_name(self, user_id: str, filename: str):
+        """Получает файл по имени из S3 в директории пользователя."""
+        key = f"{user_id}/{filename}"  # Формируем путь к файлу на основе user_id и имени файла
+        async with self.get_client() as client:
+            try:
+                # Получаем объект из S3
+                response = await client.get_object(Bucket=self.bucket_name, Key=key)
+                file_content = await response['Body'].read()  # Чтение содержимого файла
+                print(file_content)
+                logging.info(f"Файл '{filename}' пользователя '{user_id}' успешно получен.")
+                return file_content
+            except Exception as e:
+                logging.error(f"Ошибка при получении файла: {e}")
+                raise e  # Исключение для правильного перехвата и обработки в маршруте
+

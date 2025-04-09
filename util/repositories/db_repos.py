@@ -1,8 +1,10 @@
 import copy
+import os
 from abc import ABC
 from dataclasses import asdict
+from pydoc import plain
 
-from dotenv import dotenv_values
+from dotenv import dotenv_values, load_dotenv
 from sqlalchemy import Table, Column, Integer, Text, MetaData, create_engine, select, update, delete, ForeignKey
 from sqlalchemy.dialects.postgresql import insert
 
@@ -13,7 +15,8 @@ class SQLAlchemyPostgresqlDataclassRepository(BaseRepository, ABC):
     """
     Based on  https://docs.sqlalchemy.org/en/20/tutorial/data_select.html
     """
-    DATABASE_ACCESS_URI = dotenv_values(".env").get("DATABASE_ACCESS_URI")
+    load_dotenv()  # Загружает переменные из файла .env в окружение
+    DATABASE_ACCESS_URI = os.getenv("DATABASE_ACCESS_URI")
     type_mapping = {
         "str": Text,
         "int": Integer,
@@ -96,8 +99,51 @@ class SQLAlchemyPostgresqlDataclassRepository(BaseRepository, ABC):
             connection.execute(delete(table).where(getattr(table.c, self.primary_field_name) == reference))
             connection.commit()
 
+    def remove_by_name(self, name: str) -> None:
+        with self.engine.connect() as connection:
+            table = self.metadata.tables[self._get_table_name()]
+            connection.execute(delete(table).where(getattr(table.c, 'name') == name))
+            connection.commit()
+
+    def list_name(self):
+        with self.engine.connect() as connection:
+            table = self.metadata.tables[self._get_table_name()]
+            cursor = connection.execute(select(table))
+            return [item['name'] for item in cursor.mappings().all()]
+
     def list(self):
         with self.engine.connect() as connection:
             table = self.metadata.tables[self._get_table_name()]
             cursor = connection.execute(select(table))
             return [self._reference_type(**item) for item in cursor.mappings().all()]
+
+    def list_files_by_status(self, status_name: str):
+        with self.engine.connect() as connection:
+            file_table = self.metadata.tables["file"]
+            status_table = self.metadata.tables["status"]
+
+            # Выполнение запроса с JOIN и фильтрацией по имени статуса
+            query = (
+                select(
+                    file_table.c.name
+                )
+                .join(status_table, file_table.c.status_id == status_table.c.id)
+                .where(status_table.c.name == status_name)
+            )
+
+            cursor = connection.execute(query)
+            return cursor.mappings().all()
+
+    def get_path(self, file_name: str) -> str:
+        with self.engine.connect() as connection:
+            table = self.metadata.tables[self._get_table_name()]
+
+            # Выполнение запроса для поиска строки с указанным именем файла
+            query = select(table.c.path).where(table.c.name == file_name)
+            cursor = connection.execute(query)
+            result = cursor.scalar_one_or_none()
+
+            if result is not None:
+                return result
+            else:
+                raise Exception(f"Файл с именем '{file_name}' не найден!")

@@ -1,14 +1,13 @@
 from dataclasses import dataclass
 
-from sqlalchemy import TIMESTAMP
 
 
 @dataclass
 class File:
     name: str
-    path: str
     status_id: int
     version: str
+    path: str
     id:int=int()
 
 @dataclass
@@ -23,7 +22,7 @@ class Status:
     id: int=int()
 
 @dataclass
-class User:
+class CustomUser:
     name: str
     email: str
     hashed_password: str

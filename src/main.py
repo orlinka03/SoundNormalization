@@ -1,19 +1,17 @@
 import tempfile
 from typing import Annotated
-
 from fastapi import FastAPI, Depends, UploadFile, Form
 from starlette.responses import FileResponse
 
-from fastapi import FastAPI
 from fastapi_users import FastAPIUsers
 
-from src.file.sound_func import get_file_extension, apply_compression, load_audio, get_file_type, save_or_replace_audio, \
-    FileType
+from src.file.router import router as file_router
+from src.file.sound_func import get_file_extension, apply_compression, load_audio, get_file_type, save_or_replace_audio
 from src.user.base_config import auth_backend, current_user
 from src.user.manager import get_user_manager
 from src.user.models import User
 from src.user.schemas import UserRead, UserCreate
-from src.file.router import router as file_router  # Импортируйте ваш роутер для работы с файлами
+
 
 
 fastapi_users = FastAPIUsers[User, int](
@@ -24,6 +22,8 @@ fastapi_users = FastAPIUsers[User, int](
 app = FastAPI(
     title="Sound Normalization"
 )
+
+
 
 # Аутентификация
 app.include_router(
@@ -56,7 +56,6 @@ def compress_file(file: UploadFile,
                   ratio: Annotated[float, Form()]
                   ):
     try:
-        print("Hello world")
         print(thresh, ratio)
         print(file.filename)
         # Добавить проверку на тип файла
@@ -77,3 +76,4 @@ def compress_file(file: UploadFile,
         return FileResponse(temp_file.name)
     except:
         return {"message": "Error!"}
+
