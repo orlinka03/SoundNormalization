@@ -3,8 +3,8 @@ import tempfile
 
 from pydub import AudioSegment
 
-from ..src.file.router import upload_file
-from ..src.file.sound_func import cut_from_file, save_file, apply_compression, load_audio, get_file_type, save_or_replace_audio, get_file_extension, save_result
+from src.file.router import upload_file
+from src.file.sound_func import cut_from_file, save_file, apply_compression, load_audio, get_file_type, save_or_replace_audio, get_file_extension, save_result
 import requests
 import flet as ft
 
